@@ -1,6 +1,12 @@
 #include <iostream>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+#include <chrono>
 
 using namespace std;
+
+const int BLOCK_SIZE = 576;
 
 vector<vector<int>> fillMatrix(int rows, int cols) {
     vector<vector<int>> matrix(rows, vector<int>(cols));
@@ -28,6 +34,27 @@ vector<vector<int>> multiplyMatrices(const vector<vector<int>>& matrix1, const v
     return result;
 }
 
+vector<vector<int>> blockMultiplyMatrices(const vector<vector<int>>& matrix1, const vector<vector<int>>&matrix2, int M, int N, int K) {
+    vector<vector<int>> result(M, vector<int>(K, 0));
+
+    for (int i = 0; i < M; i += BLOCK_SIZE) {
+        for (int j = 0; j < K; j += BLOCK_SIZE) {
+            for (int k = 0; k < N; k += BLOCK_SIZE) {
+                // перемножение блоков
+                for (int ib = i; ib < min(i + BLOCK_SIZE, M); ++ib) {
+                    for (int jb = j; jb < min(j + BLOCK_SIZE, K); ++jb) {
+                        for (int kb = k; kb < min(k + BLOCK_SIZE, N); ++kb) {
+                            result[ib][jb] += matrix1[ib][kb] * matrix2[kb][jb];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 int main()
 {
     srand(static_cast<unsigned>(time(nullptr))); // инициализация генератора случайных чисел
@@ -40,7 +67,7 @@ int main()
     auto matrix1 = fillMatrix(M, N);
     auto matrix2 = fillMatrix(N, K);
 
-    cout << "Перемножение матриц начато." << endl;
+    cout << "Перемножение матриц классическим способом начато." << endl;
 
     auto start = chrono::high_resolution_clock::now();
 
@@ -50,8 +77,21 @@ int main()
 
     chrono::duration<double> duration = end - start;
 
-    cout << "Перемножение матриц завершено." << endl;
-    cout << "Длительность перемножения: " << duration.count() << " секунд." << endl;
+    cout << "Перемножение матриц классическим способом завершено." << endl;
+    cout << "Длительность классического перемножения: " << duration.count() << " секунд." << endl << endl;
+
+    cout << "Перемножение матриц блочным способом начато." << endl;
+
+    start = chrono::high_resolution_clock::now();
+
+    auto result_blocked = blockMultiplyMatrices(matrix1, matrix2, M, N, K);
+
+    end = chrono::high_resolution_clock::now();
+
+    duration = end - start;
+
+    cout << "Перемножение матриц блочным способом завершено." << endl;
+    cout << "Длительность блочного перемножения: " << duration.count() << " секунд." << endl;
 
     return 0;
 }
