@@ -70,28 +70,25 @@ int main()
     cout << "Перемножение матриц классическим способом начато." << endl;
 
     auto start = chrono::high_resolution_clock::now();
-
     auto result = multiplyMatrices(matrix1, matrix2, M, N, K);
-
     auto end = chrono::high_resolution_clock::now();
 
     chrono::duration<double> duration = end - start;
-
     cout << "Перемножение матриц классическим способом завершено." << endl;
     cout << "Длительность классического перемножения: " << duration.count() << " секунд." << endl << endl;
 
     cout << "Перемножение матриц блочным способом начато." << endl;
 
     start = chrono::high_resolution_clock::now();
-
     auto result_blocked = blockMultiplyMatrices(matrix1, matrix2, M, N, K);
-
     end = chrono::high_resolution_clock::now();
 
-    duration = end - start;
-
+    chrono::duration<double> duration_blocked = end - start;
     cout << "Перемножение матриц блочным способом завершено." << endl;
-    cout << "Длительность блочного перемножения: " << duration.count() << " секунд." << endl;
+    cout << "Длительность блочного перемножения: " << duration_blocked.count() << " секунд." << endl;
+
+    cout << endl << "Блочная реализация быстрее, чем классическая в " << duration.count() / duration_blocked.count() << " раз." << endl;
+    cout << "Первый элемент матрицы: " << result[0][0] << "." << endl;
 
     return 0;
 }
