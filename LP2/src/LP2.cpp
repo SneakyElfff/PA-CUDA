@@ -47,26 +47,48 @@ vector<vector<int> > blockMultiplyMatrices(const vector<vector<int> >& matrix1, 
     for (int i = 0; i < M; i += BLOCK_SIZE) {
         for (int j = 0; j < K; j += BLOCK_SIZE) {
             for (int k = 0; k < N; k += BLOCK_SIZE) {
-                // умножение блоков
-                for (int ib = i; ib < min(i + BLOCK_SIZE, M); ++ib) {
-                    for (int jb = j; jb < min(j + BLOCK_SIZE, K); ++jb) {
-                        __m128i sum = _mm_setzero_si128(); // Инициализация вектора суммы
+                int i_m = min(i + BLOCK_SIZE, M);
+                int j_m = min(j + BLOCK_SIZE, K);
+                int k_m = min(k + BLOCK_SIZE, N);
 
-                        for (int kb = k; kb < min(k + BLOCK_SIZE, N); kb += 4) {
-                            // загрузка 4 элементов из matrix1 и matrix2
-                            __m128i a = _mm_loadu_si128((__m128i*)&matrix1[ib][kb]);
+                // SSE-инструкции
+                for (int ib = i; ib < i_m; ++ib) {
+                    // работа с блоком из 4 элементов
+                    for (int jb = j; jb < j_m; jb += 4) {
+                        __m128i c = _mm_loadu_si128((__m128i*)&result[ib][jb]);
+
+                        for (int kb = k; kb < k_m; ++kb) {
+                            __m128i a = _mm_set1_epi32(matrix1[ib][kb]);
                             __m128i b = _mm_loadu_si128((__m128i*)&matrix2[kb][jb]);
 
                             // умножение и накопление
-                            sum = _mm_add_epi32(sum, _mm_mullo_epi32(a, b));
+                            __m128i prod = _mm_mullo_epi32(a, b);
+                            c = _mm_add_epi32(c, prod);
                         }
 
                         // сохранение результата
-                        int temp[4];
-                        _mm_storeu_si128((__m128i*)temp, sum);
-                        result[ib][jb] += temp[0] + temp[1] + temp[2] + temp[3];
+                        _mm_storeu_si128((__m128i*)&result[ib][jb], c);
                     }
                 }
+                // // AVX2-инструкции
+                // for (int ib = i; ib < i_m; ++ib) {
+                //     // работа с блоком 8 элементов
+                //     for (int jb = j; jb < j_m; jb += 8) {
+                //         __m256i c = _mm256_loadu_si256((__m256i*)&result[ib][jb]);
+                //
+                //         for (int kb = k; kb < k_m; ++kb) {
+                //             __m256i a = _mm256_set1_epi32(matrix1[ib][kb]);
+                //             __m256i b = _mm256_loadu_si256((__m256i*)&matrix2[kb][jb]);
+                //
+                //             // умножение и накопление
+                //             __m256i prod = _mm256_mullo_epi32(a, b);
+                //             c = _mm256_add_epi32(c, prod);
+                //         }
+                //
+                //         // сохранение результата
+                //         _mm256_storeu_si256((__m256i*)&result[ib][jb], c);
+                //     }
+                // }
             }
         }
     }
@@ -125,9 +147,9 @@ int main()
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N" << setw(8) << "K"
-         << setw(20) << "Time (s)" << setw(20) << "L1 (s)"
+         << setw(14) << "Time (s)" << setw(19) << "L1 (s)"
          << endl;
-    cout << string(84, '-') << endl;
+    cout << string(48, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N << setw(8) << K
          << setw(14) << duration.count()
