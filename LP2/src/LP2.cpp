@@ -43,28 +43,56 @@ vector<vector<int> > multiplyMatrices(const vector<vector<int> >& matrix1, const
 vector<vector<int> > blockMultiplyMatrices(const vector<vector<int> >& matrix1, const vector<vector<int> >& matrix2, int M, int N, int K) {
     vector<vector<int> > result(M, vector<int>(K, 0));
 
+    for (int i = 0; i < M; i += BLOCK_SIZE) {
+        for (int j = 0; j < K; j += BLOCK_SIZE) {
+            for (int k = 0; k < N; k += BLOCK_SIZE) {
+                int i_m = min(i + BLOCK_SIZE, M);
+                int j_m = min(j + BLOCK_SIZE, K);
+                int k_m = min(k + BLOCK_SIZE, N);
+
+                // перемножение блоков
+                for (int ib = i; ib < i_m; ++ib) {
+                    for (int jb = j; jb < j_m; ++jb) {
+                        for (int kb = k; kb < k_m; ++kb) {
+                            result[ib][jb] += matrix1[ib][kb] * matrix2[kb][jb];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+vector<vector<int> > blockMultiplyMatricesVectorised(const vector<vector<int> >& matrix1, const vector<vector<int> >& matrix2, int M, int N, int K) {
+    vector<vector<int> > result(M, vector<int>(K, 0));
+
     #pragma omp parallel for collapse(2)
     for (int i = 0; i < M; i += BLOCK_SIZE) {
         for (int j = 0; j < K; j += BLOCK_SIZE) {
             for (int k = 0; k < N; k += BLOCK_SIZE) {
-                // умножение блоков
-                for (int ib = i; ib < min(i + BLOCK_SIZE, M); ++ib) {
-                    for (int jb = j; jb < min(j + BLOCK_SIZE, K); ++jb) {
-                        __m128i sum = _mm_setzero_si128(); // Инициализация вектора суммы
+                int i_m = min(i + BLOCK_SIZE, M);
+                int j_m = min(j + BLOCK_SIZE, K);
+                int k_m = min(k + BLOCK_SIZE, N);
 
-                        for (int kb = k; kb < min(k + BLOCK_SIZE, N); kb += 4) {
-                            // загрузка 4 элементов из matrix1 и matrix2
-                            __m128i a = _mm_loadu_si128((__m128i*)&matrix1[ib][kb]);
-                            __m128i b = _mm_loadu_si128((__m128i*)&matrix2[kb][jb]);
+                // AVX2-инструкции
+                for (int ib = i; ib < i_m; ++ib) {
+                    // работа с блоком 8 элементов
+                    for (int jb = j; jb < j_m; jb += 8) {
+                        __m256i c = _mm256_loadu_si256((__m256i*)&result[ib][jb]);
+
+                        for (int kb = k; kb < k_m; ++kb) {
+                            __m256i a = _mm256_set1_epi32(matrix1[ib][kb]);
+                            __m256i b = _mm256_loadu_si256((__m256i*)&matrix2[kb][jb]);
 
                             // умножение и накопление
-                            sum = _mm_add_epi32(sum, _mm_mullo_epi32(a, b));
+                            __m256i prod = _mm256_mullo_epi32(a, b);
+                            c = _mm256_add_epi32(c, prod);
                         }
 
                         // сохранение результата
-                        int temp[4];
-                        _mm_storeu_si128((__m128i*)temp, sum);
-                        result[ib][jb] += temp[0] + temp[1] + temp[2] + temp[3];
+                        _mm256_storeu_si256((__m256i*)&result[ib][jb], c);
                     }
                 }
             }
@@ -112,12 +140,21 @@ int main()
     auto result_blocked = blockMultiplyMatrices(matrix1, matrix2, M, N, K);
     end = chrono::high_resolution_clock::now();
     chrono::duration<double> duration_blocked = end - start;
-    cout << "Duration: " << duration_blocked.count() << " sec." << endl;
+    cout << "Duration: " << duration_blocked.count() << " sec." << endl << endl;
 
-    cout << endl << "Blocked realization is faster in " << duration.count() / duration_blocked.count() << endl;
+    cout << "Parallel multiplication (blocked + vectorised) started." << endl;
 
-    if (compareMatrices(result, result_blocked)) {
-        cout << "Results are the same" << endl;
+    start = chrono::high_resolution_clock::now();
+    auto result_blocked_vectorised = blockMultiplyMatricesVectorised(matrix1, matrix2, M, N, K);
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double> duration_blocked_vectorised = end - start;
+    cout << "Duration: " << duration_blocked_vectorised.count() << " sec." << endl << endl;
+
+    cout << "Vectorised blocked realization is faster than traditional in " << duration.count() / duration_blocked_vectorised.count() << endl;
+    cout << "Vectorised blocked realization is faster than blocked in " << duration_blocked.count() / duration_blocked_vectorised.count() << endl;
+
+    if (compareMatrices(result, result_blocked) & compareMatrices(result, result_blocked_vectorised)) {
+        cout << endl << "Results are the same" << endl;
         cout << "First matrix element: " << result[0][0] << "." << endl;
     }
     else
@@ -125,13 +162,14 @@ int main()
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N" << setw(8) << "K"
-         << setw(20) << "Time (s)" << setw(20) << "L1 (s)"
+         << setw(19) << "Time L1-1 (s)" << setw(19) << "Time L1-3 (s)" << setw(19) << "Time L1-5 (s)"
          << endl;
-    cout << string(84, '-') << endl;
+    cout << string(76, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N << setw(8) << K
-         << setw(14) << duration.count()
+         << setw(19) << duration.count()
          << setw(19) << duration_blocked.count()
+         << setw(19) << duration_blocked_vectorised.count()
          << endl;
 
     return 0;
