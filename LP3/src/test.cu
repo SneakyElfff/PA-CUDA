@@ -7,6 +7,9 @@
 
 using namespace std;
 
+float duration_gpu_kernel = 0;
+float duration_gpu_total = 0;
+
 vector<vector<int>> fillMatrix(int rows, int cols) {
     vector<vector<int>> matrix(rows, vector<int>(cols));
     random_device rd;
@@ -104,7 +107,6 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     cudaEventRecord(stop_event, 0);
     cudaEventSynchronize(stop_event);
 
-    float duration_gpu_kernel = 0;
     cudaEventElapsedTime(&duration_gpu_kernel, start_event, stop_event);
 
     cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost);
@@ -112,11 +114,7 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     cudaEventRecord(stop_total_event, 0);
     cudaEventSynchronize(stop_total_event);
 
-    float duration_gpu_total = 0;
     cudaEventElapsedTime(&duration_gpu_total, start_total_event, stop_total_event);
-
-    cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
-    cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
 
     cudaFree(d_matrix);
     cudaFree(d_result);
@@ -157,17 +155,7 @@ int main() {
     int window_size = 2;
     int block_size = N / 2;
 
-    vector<vector<int>> matrix = {
-        {1, 2, 3, 4, 5, 6, 7, 8},
-        {9, 10, 11, 12, 13, 14, 15, 16},
-        {17, 18, 19, 20, 21, 22, 23, 24},
-        {25, 26, 27, 28, 29, 30, 31, 32},
-        {33, 34, 35, 36, 37, 38, 39, 40},
-        {41, 42, 43, 44, 45, 46, 47, 48},
-        {49, 50, 51, 52, 53, 54, 55, 56},
-        {57, 58, 59, 60, 61, 62, 63, 64}
-    };
-
+    vector<vector<int>> matrix = fillMatrix(N, M);
     cout << "Original Matrix:\n";
     printMatrix(matrix);
 
@@ -181,7 +169,11 @@ int main() {
 
     cout << "Transformation (GPU) started." << endl;
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
+    cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
+    cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
     printMatrix(result_gpu);
+
+    cout << "GPU realisation is faster than CPU in " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
 
     if (compareMatrices(result_cpu, result_gpu)) {
         cout << endl << "Results are the same" << endl;
@@ -189,19 +181,18 @@ int main() {
     }
     else {
         cout << "Results are NOT the same." << endl;
+    }
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N"
-        << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only(s)"
-        << setw(19) << "Time GPU (s)"
-        << endl;
+         << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only (s)"
+         << setw(19) << "Time GPU (s)" << endl;
     cout << string(76, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N
-        << setw(19) << duration_cpu.count()
-//        << setw(19) << duration_gpu_kernel
-//        << setw(19) << duration_gpu_total
-        << endl;
+         << setw(19) << duration_cpu.count()
+         << setw(19) << duration_gpu_kernel / 1000.0
+         << setw(19) << duration_gpu_total / 1000.0 << endl;
 
     return 0;
 }
