@@ -32,8 +32,8 @@ void printMatrix(const vector<vector<int>>& matrix) {
     cout << "\n";
 }
 
-vector<vector<int> > transformMatrix(const vector<vector<int> > &matrix, int N, int M, int block_size, int window_size) {
-    vector<vector<int> > result(N, vector<int>(M, 0));
+vector<vector<int>> transformMatrix(const vector<vector<int>> &matrix, int N, int M, int block_size, int window_size) {
+    vector<vector<int>> result(N, vector<int>(M, 0));
 
     for(int i = 0; i < N; i += block_size) {
         for(int j = 0; j < M; j += block_size) {
@@ -52,7 +52,7 @@ vector<vector<int> > transformMatrix(const vector<vector<int> > &matrix, int N, 
     return result;
 }
 
-__global__ void transformMatrixKernel(int* d_matrix, int* d_result, int N, int M, int block_size, int window_size) {
+__global__ void transformMatrixKernel(int *d_matrix, int *d_result, int N, int M, int block_size, int window_size) {
     int block_row = blockIdx.y * block_size;
     int block_col = blockIdx.x * block_size;
 
@@ -70,54 +70,71 @@ __global__ void transformMatrixKernel(int* d_matrix, int* d_result, int N, int M
     }
 }
 
-vector<vector<int>> transformMatrixGPU(const vector<vector<int>>& matrix, int N, int M, int block_size, int window_size) {
-    int* h_matrix = new int[N * M];
-    int* h_result = new int[N * M];
+vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N, int M, int block_size, int window_size) {
+    int *h_matrix = new int[N * M];
+    int *h_result = new int[N * M];
 
     for (int i = 0; i < N; ++i)
         for (int j = 0; j < M; ++j)
             h_matrix[i * M + j] = matrix[i][j];
 
-    int* d_matrix;
-    int* d_result;
+    int *d_matrix;
+    int *d_result;
     cudaMalloc(&d_matrix, N * M * sizeof(int));
     cudaMalloc(&d_result, N * M * sizeof(int));
+
     cudaMemcpy(d_matrix, h_matrix, N * M * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemset(d_result, 0, N * M * sizeof(int));
 
     dim3 block(32, 32);
     dim3 grid((M + block_size - 1) / block_size, (N + block_size - 1) / block_size);
+
+    cudaEvent_t start_event, stop_event;
+    cudaEventCreate(&start_event);
+    cudaEventCreate(&stop_event);
+
+    cudaEventRecord(start_event, 0);
     transformMatrixKernel<<<grid, block>>>(d_matrix, d_result, N, M, block_size, window_size);
+    cudaEventRecord(stop_event, 0);
+    cudaEventSynchronize(stop_event);
+
+    float duration_gpu_kernel = 0;
+    cudaEventElapsedTime(&duration_gpu_kernel, start_event, stop_event);
 
     cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost);
-
-    vector<vector<int>> result(N, vector<int>(M));
-    for (int i = 0; i < N; ++i)
-        for (int j = 0; j < M; ++j)
-            result[i][j] = h_result[i * M + j];
 
     cudaFree(d_matrix);
     cudaFree(d_result);
     delete[] h_matrix;
     delete[] h_result;
 
+    cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
+
+    cudaEventDestroy(start_event);
+    cudaEventDestroy(stop_event);
+
+    vector<vector<int>> result(N, vector<int>(M));
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < M; ++j)
+            result[i][j] = h_result[i * M + j];
+
     return result;
 }
 
- bool compareMatrices(const vector<vector<int> >& matrix1, const vector<vector<int> >& matrix2) {
-     if (matrix1.size() != matrix2.size() || matrix1[0].size() != matrix2[0].size())
-         return false;
+bool compareMatrices(const vector<vector<int>>& matrix1, const vector<vector<int>>& matrix2) {
+    if (matrix1.size() != matrix2.size() || matrix1[0].size() != matrix2[0].size())
+        return false;
 
-     for (size_t i = 0; i < matrix1.size(); i++) {
-         for (size_t j = 0; j < matrix1[0].size(); j++) {
-             if (matrix1[i][j] != matrix2[i][j]) {
-                 return false;
-             }
-         }
-     }
+    for (size_t i = 0; i < matrix1.size(); i++) {
+        for (size_t j = 0; j < matrix1[0].size(); j++) {
+            if (matrix1[i][j] != matrix2[i][j]) {
+                return false;
+            }
+        }
+    }
 
-     return true;
- }
+    return true;
+}
 
 int main() {
     int N = 8;
@@ -148,31 +165,27 @@ int main() {
     printMatrix(result_cpu);
 
     cout << "Transformation (GPU) started." << endl;
-    start = chrono::high_resolution_clock::now();
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
-    end = chrono::high_resolution_clock::now();
-    chrono::duration<double> duration_gpu = end - start;
-    cout << "Duration (GPU): " << duration_gpu.count() << " sec." << endl;
     printMatrix(result_gpu);
 
-        cout << "GPU realization is faster than CPU in " << duration_cpu.count() / duration_gpu.count() << endl;
+    cout << "GPU kernel-only time: " << duration_cpu.count() / (duration_gpu_kernel / 1000.0) << "x faster than CPU" << endl;
 
-     if (compareMatrices(result_cpu, result_gpu)) {
-         cout << endl << "Results are the same" << endl;
-         cout << "First matrix element: " << result_cpu[0][0] << "." << endl;
-     }
-     else
-         cout << "Results are NOT the same." << endl;
+    if (compareMatrices(result_cpu, result_gpu)) {
+        cout << endl << "Results are the same" << endl;
+        cout << "First matrix element: " << result_cpu[0][0] << "." << endl;
+    }
+    else
+        cout << "Results are NOT the same." << endl;
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N"
-         << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU (s)"
+         << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only(s)"
          << endl;
     cout << string(76, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N
          << setw(19) << duration_cpu.count()
-         << setw(19) << duration_gpu.count()
+         << setw(19) << duration_gpu_kernel
          << endl;
 
     return 0;

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.29)
-project(LP3)
+project(LP3 CUDA)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 20)
 
-add_executable(LP3 /Users/nina/CLionProjects/PA-CUDA/LP3/src/LP3.cpp)
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=sm_50")
+
+add_executable(LP3 LP3.cu)
+
+set_target_properties(LP3 PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON)
