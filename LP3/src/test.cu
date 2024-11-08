@@ -161,14 +161,14 @@ bool compareMatrices(const vector<vector<int>>& matrix1, const vector<vector<int
 }
 
 int main() {
-    int N = 8;
-    int M = 8;
+    int N = 1024;
+    int M = 1024;
     int window_size = 2;
     int block_size = N / 2;
 
     vector<vector<int>> matrix = fillMatrix(N, M);
     cout << "Original Matrix:\n";
-    printMatrix(matrix);
+//     printMatrix(matrix);
 
     cout << "Transformation (CPU) started." << endl;
     auto start = chrono::high_resolution_clock::now();
@@ -176,13 +176,13 @@ int main() {
     auto end = chrono::high_resolution_clock::now();
     chrono::duration<double> duration_cpu = end - start;
     cout << "Duration (CPU): " << duration_cpu.count() << " sec." << endl;
-    printMatrix(result_cpu);
+//     printMatrix(result_cpu);
 
     cout << "Transformation (GPU) started." << endl;
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
     cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
     cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
-    printMatrix(result_gpu);
+//    printMatrix(result_gpu);
 
     cout << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
 
