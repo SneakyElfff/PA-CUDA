@@ -83,16 +83,22 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     cudaMalloc(&d_matrix, N * M * sizeof(int));
     cudaMalloc(&d_result, N * M * sizeof(int));
 
+    cudaEvent_t start_event, stop_event, start_total_event, stop_total_event;
+    cudaEventCreate(&start_event);
+    cudaEventCreate(&stop_event);
+    cudaEventCreate(&start_total_event);
+    cudaEventCreate(&stop_total_event);
+
+    // замер времени (с учетом копирования данных)
+    cudaEventRecord(start_total_event, 0);
+
     cudaMemcpy(d_matrix, h_matrix, N * M * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemset(d_result, 0, N * M * sizeof(int));
 
     dim3 block(32, 32);
     dim3 grid((M + block_size - 1) / block_size, (N + block_size - 1) / block_size);
 
-    cudaEvent_t start_event, stop_event;
-    cudaEventCreate(&start_event);
-    cudaEventCreate(&stop_event);
-
+    // замер времени (без учета копирования данных)
     cudaEventRecord(start_event, 0);
     transformMatrixKernel<<<grid, block>>>(d_matrix, d_result, N, M, block_size, window_size);
     cudaEventRecord(stop_event, 0);
@@ -103,15 +109,24 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
 
     cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost);
 
+    cudaEventRecord(stop_total_event, 0);
+    cudaEventSynchronize(stop_total_event);
+
+    float duration_gpu_total = 0;
+    cudaEventElapsedTime(&duration_gpu_total, start_total_event, stop_total_event);
+
+    cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
+    cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
+
     cudaFree(d_matrix);
     cudaFree(d_result);
     delete[] h_matrix;
     delete[] h_result;
 
-    cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
-
     cudaEventDestroy(start_event);
     cudaEventDestroy(stop_event);
+    cudaEventDestroy(start_total_event);
+    cudaEventDestroy(stop_total_event);
 
     vector<vector<int>> result(N, vector<int>(M));
     for (int i = 0; i < N; ++i)
@@ -168,25 +183,25 @@ int main() {
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
     printMatrix(result_gpu);
 
-    cout << "GPU kernel-only time: " << duration_cpu.count() / (duration_gpu_kernel / 1000.0) << "x faster than CPU" << endl;
-
     if (compareMatrices(result_cpu, result_gpu)) {
         cout << endl << "Results are the same" << endl;
         cout << "First matrix element: " << result_cpu[0][0] << "." << endl;
     }
-    else
+    else {
         cout << "Results are NOT the same." << endl;
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N"
-         << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only(s)"
-         << endl;
+        << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only(s)"
+        << setw(19) << "Time GPU (s)"
+        << endl;
     cout << string(76, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N
-         << setw(19) << duration_cpu.count()
-         << setw(19) << duration_gpu_kernel
-         << endl;
+        << setw(19) << duration_cpu.count()
+//        << setw(19) << duration_gpu_kernel
+//        << setw(19) << duration_gpu_total
+        << endl;
 
     return 0;
 }
