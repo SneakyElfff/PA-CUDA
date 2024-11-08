@@ -35,6 +35,13 @@ void printMatrix(const vector<vector<int>>& matrix) {
     cout << "\n";
 }
 
+void checkCudaError(cudaError_t error, const char *message) {
+    if (error != cudaSuccess) {
+        cerr << "Error: " << message << " (" << cudaGetErrorString(error) << ")" << endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 vector<vector<int>> transformMatrix(const vector<vector<int>> &matrix, int N, int M, int block_size, int window_size) {
     vector<vector<int>> result(N, vector<int>(M, 0));
 
@@ -83,8 +90,9 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
 
     int *d_matrix;
     int *d_result;
-    cudaMalloc(&d_matrix, N * M * sizeof(int));
-    cudaMalloc(&d_result, N * M * sizeof(int));
+
+    checkCudaError(cudaMalloc(&d_matrix, N * M * sizeof(int)), "cudaMalloc d_matrix");
+    checkCudaError(cudaMalloc(&d_result, N * M * sizeof(int)), "cudaMalloc d_result");
 
     cudaEvent_t start_event, stop_event, start_total_event, stop_total_event;
     cudaEventCreate(&start_event);
@@ -95,8 +103,8 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     // замер времени (с учетом копирования данных)
     cudaEventRecord(start_total_event, 0);
 
-    cudaMemcpy(d_matrix, h_matrix, N * M * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemset(d_result, 0, N * M * sizeof(int));
+    checkCudaError(cudaMemcpy(d_matrix, h_matrix, N * M * sizeof(int), cudaMemcpyHostToDevice), "cudaMemcpy h_matrix to d_matrix");
+    checkCudaError(cudaMemset(d_result, 0, N * M * sizeof(int)), "cudaMemset d_result");
 
     dim3 block(32, 32);
     dim3 grid((M + block_size - 1) / block_size, (N + block_size - 1) / block_size);
@@ -104,20 +112,23 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     // замер времени (без учета копирования данных)
     cudaEventRecord(start_event, 0);
     transformMatrixKernel<<<grid, block>>>(d_matrix, d_result, N, M, block_size, window_size);
+    checkCudaError(cudaGetLastError(), "Kernel launch");
+
     cudaEventRecord(stop_event, 0);
     cudaEventSynchronize(stop_event);
 
     cudaEventElapsedTime(&duration_gpu_kernel, start_event, stop_event);
 
-    cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost);
+    checkCudaError(cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost), "cudaMemcpy d_result to h_result");
 
     cudaEventRecord(stop_total_event, 0);
     cudaEventSynchronize(stop_total_event);
 
     cudaEventElapsedTime(&duration_gpu_total, start_total_event, stop_total_event);
 
-    cudaFree(d_matrix);
-    cudaFree(d_result);
+    checkCudaError(cudaFree(d_matrix), "cudaFree d_matrix");
+    checkCudaError(cudaFree(d_result), "cudaFree d_result");
+
     delete[] h_matrix;
     delete[] h_result;
 
@@ -173,7 +184,7 @@ int main() {
     cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
     printMatrix(result_gpu);
 
-    cout << "GPU realisation is faster than CPU in " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
+    cout << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
 
     if (compareMatrices(result_cpu, result_gpu)) {
         cout << endl << "Results are the same" << endl;
@@ -185,13 +196,13 @@ int main() {
 
     cout << endl << "Testing results:" << endl;
     cout << left << setw(8) << "M" << setw(8) << "N"
-         << setw(19) << "Time CPU (s)" << setw(19) << "Time GPU kernel-only (s)"
+         << setw(19) << "Time CPU (s)" << setw(29) << "Time GPU kernel-only (s)"
          << setw(19) << "Time GPU (s)" << endl;
     cout << string(76, '-') << endl;
 
     cout << left << setw(8) << M << setw(8) << N
          << setw(19) << duration_cpu.count()
-         << setw(19) << duration_gpu_kernel / 1000.0
+         << setw(29) << duration_gpu_kernel / 1000.0
          << setw(19) << duration_gpu_total / 1000.0 << endl;
 
     return 0;
