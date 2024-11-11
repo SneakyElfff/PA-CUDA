@@ -178,13 +178,13 @@ int main() {
     cout << "Duration (CPU): " << duration_cpu.count() << " sec." << endl;
 //     printMatrix(result_cpu);
 
-    cout << "Transformation (GPU) started." << endl;
+    cout << endl << "Transformation (GPU) started." << endl;
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
     cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
     cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
 //    printMatrix(result_gpu);
 
-    cout << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
+    cout << endl << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_kernel / 1000.0) << endl;
 
     if (compareMatrices(result_cpu, result_gpu)) {
         cout << endl << "Results are the same" << endl;
