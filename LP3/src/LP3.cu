@@ -101,7 +101,7 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     cudaEventCreate(&stop_total_event);
 
     // замер времени (с учетом копирования данных)
-    cudaEventRecord(start_total_event, 0);
+    cudaEventRecord(start_total_event, nullptr);
 
     checkCudaError(cudaMemcpy(d_matrix, h_matrix, N * M * sizeof(int), cudaMemcpyHostToDevice), "cudaMemcpy h_matrix to d_matrix");
     checkCudaError(cudaMemset(d_result, 0, N * M * sizeof(int)), "cudaMemset d_result");
@@ -110,21 +110,26 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     dim3 grid((M + block_size - 1) / block_size, (N + block_size - 1) / block_size);
 
     // замер времени (без учета копирования данных)
-    cudaEventRecord(start_event, 0);
+    cudaEventRecord(start_event, nullptr);
     transformMatrixKernel<<<grid, block>>>(d_matrix, d_result, N, M, block_size, window_size);
     checkCudaError(cudaGetLastError(), "Kernel launch");
 
-    cudaEventRecord(stop_event, 0);
+    cudaEventRecord(stop_event, nullptr);
     cudaEventSynchronize(stop_event);
 
     cudaEventElapsedTime(&duration_gpu_kernel, start_event, stop_event);
 
     checkCudaError(cudaMemcpy(h_result, d_result, N * M * sizeof(int), cudaMemcpyDeviceToHost), "cudaMemcpy d_result to h_result");
 
-    cudaEventRecord(stop_total_event, 0);
+    cudaEventRecord(stop_total_event, nullptr);
     cudaEventSynchronize(stop_total_event);
 
     cudaEventElapsedTime(&duration_gpu_total, start_total_event, stop_total_event);
+
+    vector<vector<int>> result(N, vector<int>(M));
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < M; ++j)
+            result[i][j] = h_result[i * M + j];
 
     checkCudaError(cudaFree(d_matrix), "cudaFree d_matrix");
     checkCudaError(cudaFree(d_result), "cudaFree d_result");
@@ -136,11 +141,6 @@ vector<vector<int>> transformMatrixGPU(const vector<vector<int>> &matrix, int N,
     cudaEventDestroy(stop_event);
     cudaEventDestroy(start_total_event);
     cudaEventDestroy(stop_total_event);
-
-    vector<vector<int>> result(N, vector<int>(M));
-    for (int i = 0; i < N; ++i)
-        for (int j = 0; j < M; ++j)
-            result[i][j] = h_result[i * M + j];
 
     return result;
 }
@@ -161,8 +161,8 @@ bool compareMatrices(const vector<vector<int>>& matrix1, const vector<vector<int
 }
 
 int main() {
-    int N = 1024;
-    int M = 1024;
+    int N = 4096;
+    int M = 4096;
     int window_size = 2;
     int block_size = N / 2;
 
@@ -178,13 +178,13 @@ int main() {
     cout << "Duration (CPU): " << duration_cpu.count() << " sec." << endl;
 //     printMatrix(result_cpu);
 
-    cout << "Transformation (GPU) started." << endl;
+    cout << endl << "Transformation (GPU) started." << endl;
     auto result_gpu = transformMatrixGPU(matrix, N, M, block_size, window_size);
     cout << "Kernel execution time (GPU): " << duration_gpu_kernel / 1000.0 << " sec." << endl;
     cout << "Total execution time (GPU including data transfer): " << duration_gpu_total / 1000.0 << " sec." << endl;
 //    printMatrix(result_gpu);
 
-    cout << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_total / 1000.0) << endl;
+    cout << endl << "GPU realisation is faster than CPU by a factor of " << duration_cpu.count() / (duration_gpu_kernel / 1000.0) << endl;
 
     if (compareMatrices(result_cpu, result_gpu)) {
         cout << endl << "Results are the same" << endl;
