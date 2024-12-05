@@ -5,7 +5,7 @@ set(CMAKE_CUDA_STANDARD 20)
 
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=sm_50")
 
-add_executable(LP4 /Users/nina/CLionProjects/PA-CUDA/LP4/src/LP4.cu)
+add_executable(LP4 LP4.cu)
 
 set_target_properties(LP4 PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
