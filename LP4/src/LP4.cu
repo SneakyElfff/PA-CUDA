@@ -29,7 +29,7 @@ void printArray(const vector<int>& array) {
 
 void checkCudaError(cudaError_t error, const char *message) {
     if (error != cudaSuccess) {
-        cerr << "Ошибка: " << message << " (" << cudaGetErrorString(error) << ")" << endl;
+        cerr << "Error: " << message << " (" << cudaGetErrorString(error) << ")" << endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -79,7 +79,7 @@ vector<int> integralSumGPU(const vector<int>& array, float &gpu_duration, float 
     checkCudaError(cudaMalloc(&d_array, size * sizeof(int)), "cudaMalloc d_array");
     checkCudaError(cudaMalloc(&d_result, size * sizeof(int)), "cudaMalloc d_result");
 
-    cudaEvent_t start_event, stop_event;
+    cudaEvent_t start_event, stop_event, start_total_event, stop_total_event;
     cudaEventCreate(&start_event);
     cudaEventCreate(&stop_event);
     cudaEventCreate(&start_total_event);
@@ -143,46 +143,45 @@ int main() {
     int size = 1024 * 1024;
 
     vector<int> array = fillArray(size);
-    cout << "Исходный массив (первые 10 элементов):\n";
+    cout << "Original array (first 10 elements)\n";
     printArray(vector<int>(array.begin(), array.begin() + 10));
 
     float cpu_duration = 0;
-    cout << "Интегральная сумма (CPU) начата." << endl;
+    cout << "Integral sum calculation (CPU) started." << endl;
     auto result_cpu = integralSumCPU(array, cpu_duration);
-    cout << "Время выполнения (CPU): " << cpu_duration << " мс." << endl;
+    cout << "Duration (CPU): " << cpu_duration << " ms." << endl;
 
     float gpu_duration = 0, gpu_duration_total = 0;
-    cout << "Интегральная сумма (GPU) начата." << endl;
+    cout << "Integral sum calculation (GPU) started." << endl;
     auto result_gpu = integralSumGPU(array, gpu_duration, gpu_duration_total);
-    cout << "Время выполнения ядра (GPU): " << gpu_duration << " мс." << endl;
-    cout << "Время выполнения ядра (GPU с учетом копирования данных): " << gpu_duration_total << " мс." << endl;
+    cout << "Kernel execution time (GPU): " << gpu_duration << " ms." << endl;
+    cout << "Total execution time (GPU including data transfer): " << gpu_duration_total << " ms." << endl;
 
-    cout << endl << "Реализация на GPU быстрее, чем ЦПУ в " << cpu_duration / gpu_duration << endl;
+    cout << endl << "GPU realisation is faster than CPU by a factor of " << cpu_duration / gpu_duration << endl;
 
     if (compareArrays(result_cpu, result_gpu)) {
-        cout << "Результаты совпадают." << endl;
-        cout << "Первый элемент: " << result_cpu[0] << "." << endl;
+        cout << "Results are the same." << endl;
+        cout << "First matrix element: " << result_cpu[0] << "." << endl;
     } else {
-        cout << "Результаты НЕ совпадают." << endl;
+        cout << "Results are NOT the same." << endl;
     }
 
-    cout << "\nРезультат интегральной суммы (первые 10 элементов):\n";
+    cout << "\nTesting results: first 10 elements\n";
     cout << "CPU: ";
     printArray(vector<int>(result_cpu.begin(), result_cpu.begin() + 10));
     cout << "GPU: ";
     printArray(vector<int>(result_gpu.begin(), result_gpu.begin() + 10));
 
-    // Вывод времён выполнения
-    cout << left << setw(20) << "Размер"
-         << setw(25) << "Время CPU (мс)"
-         << setw(25) << "Время GPU-kernel (мс)"
-        << setw(25) << "Время GPU-total (мс)" << endl;
-    cout << string(70, '-') << endl;
+    cout << left << setw(20) << "Size"
+         << setw(25) << "Time CPU (ms)"
+         << setw(40) << "Time GPU kernel-only (ms)"
+         << setw(30) << "Time GPU (ms)" << endl;
+    cout << string(98, '-') << endl;
 
     cout << left << setw(20) << size
          << setw(25) << cpu_duration
-         << setw(25) << gpu_duration
-        << setw(25) << gpu_duration_total << endl;
+         << setw(40) << gpu_duration
+         << setw(30) << gpu_duration_total << endl;
 
     return 0;
 }
