@@ -9,47 +9,141 @@ __global__ void laplacianFilter(unsigned char *input, unsigned char *output, int
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // Проверка, чтобы поток обрабатывал только допустимые координаты
     if (x >= width || y >= height) return;
 
+    int idx = y * width + x;
+    int laplacian_value = 0;
+
+    // Обработка центральных пикселей
     if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
-        int idx = y * width + x;
-
-        int laplacian_value = input[(y - 1) * width + x] +    // верхний сосед
-                              input[y * width + (x - 1)] +    // левый сосед
-                              input[y * width + (x + 1)] +    // правый сосед
-                              input[(y + 1) * width + x] +    // нижний сосед
-                              -4 * input[idx];               // центральный пиксель
-
-        // Ограничение значений результата в диапазоне [0, 255]
-        output[idx] = min(max(laplacian_value, 0), 255);
+        laplacian_value = input[(y - 1) * width + x] +    // верхний сосед
+                          input[y * width + (x - 1)] +    // левый сосед
+                          input[y * width + (x + 1)] +    // правый сосед
+                          input[(y + 1) * width + x] +    // нижний сосед
+                          -4 * input[idx];                 // центральный пиксель
     } else {
-        // Для границ копируется исходное значение
-        int idx = y * width + x;
-        output[idx] = input[idx];
+        // Обработка краевых пикселей
+        if (y == 0) { // Верхний край
+            if (x == 0) { // Верхний левый угол
+                laplacian_value = input[idx] * -4 +
+                                  (x < width - 1 ? input[idx + 1] : 0) + // Правый сосед
+                                  (y < height - 1 ? input[(y + 1) * width + x] : 0); // Нижний сосед
+            } else if (x == width - 1) { // Верхний правый угол
+                laplacian_value = input[idx] * -4 +
+                                  (x > 0 ? input[idx - 1] : 0) + // Левый сосед
+                                  (y < height - 1 ? input[(y + 1) * width + x] : 0); // Нижний сосед
+            } else { // Верхний край (не углы)
+                laplacian_value = input[idx] * -4 +
+                                  (x > 0 ? input[idx - 1] : 0) + // Левый сосед
+                                  (x < width - 1 ? input[idx + 1] : 0) + // Правый сосед
+                                  (y < height - 1 ? input[(y + 1) * width + x] : 0); // Нижний сосед
+            }
+        } else if (y == height - 1) { // Нижний край
+            if (x == 0) { // Нижний левый угол
+                laplacian_value = input[idx] * -4 +
+                                  (x < width - 1 ? input[idx + 1] : 0) + // Правый сосед
+                                  (y > 0 ? input[(y - 1) * width + x] : 0); // Верхний сосед
+            } else if (x == width - 1) { // Нижний правый угол
+                laplacian_value = input[idx] * -4 +
+                                  (x > 0 ? input[idx - 1] : 0) + // Левый сосед
+                                  (y > 0 ? input[(y - 1) * width + x] : 0); // Верхний сосед
+            } else { // Нижний край (не углы)
+                laplacian_value = input[idx] * -4 +
+                                  (x > 0 ? input[idx - 1] : 0) + // Левый сосед
+                                  (x < width - 1 ? input[idx + 1] : 0) + // Правый сосед
+                                  (y > 0 ? input[(y - 1) * width + x] : 0); // Верхний сосед
+            }
+        } else if (x == 0) { // Левый край
+            if (y > 0 && y < height - 1) { // Не углы
+                laplacian_value = input[idx] * -4 +
+                                  (y > 0 ? input[(y - 1) * width + x] : 0) + // Верхний сосед
+                                  (y < height - 1 ? input[(y + 1) * width + x] : 0) + // Нижний сосед
+                                  (x < width - 1 ? input[(y) * width + (x + 1)] : 0); // Правый сосед
+            }
+        } else if (x == width - 1) { // Правый край
+            if (y > 0 && y < height - 1) { // Не углы
+                laplacian_value = input[idx] * -4 +
+                                  (y > 0 ? input[(y - 1) * width + x] : 0) + // Верхний сосед
+                                  (y < height - 1 ? input[(y + 1) * width + x] : 0) + // Нижний сосед
+                                  (x > 0 ? input[(y) * width + (x - 1)] : 0); // Левый сосед
+            }
+        }
     }
+
+    // Ограничение значений результата в диапазоне [0, 255]
+    output[idx] = min(max(laplacian_value, 0), 255);
 }
 
 void laplacianFilterCPU(const Mat &input, Mat &output) {
+    // Обработка центральных пикселей
     for (int y = 1; y < input.rows - 1; ++y) {
         for (int x = 1; x < input.cols - 1; ++x) {
-            int laplacian_value = input.at<uchar>(y - 1, x) +
-                                  input.at<uchar>(y, x - 1) +
-                                  input.at<uchar>(y, x + 1) +
-                                  input.at<uchar>(y + 1, x) +
-                                  -4 * input.at<uchar>(y, x);
+            int laplacian_value = input.at<uchar>(y - 1, x) +    // верхний сосед
+                                  input.at<uchar>(y, x - 1) +    // левый сосед
+                                  input.at<uchar>(y, x + 1) +    // правый сосед
+                                  input.at<uchar>(y + 1, x) +    // нижний сосед
+                                  -4 * input.at<uchar>(y, x);    // центральный пиксель
             output.at<uchar>(y, x) = min(max(laplacian_value, 0), 255);
         }
     }
 
-    // Копируются граничные пиксели
+    // Обработка краевых пикселей
     for (int y = 0; y < input.rows; ++y) {
-        output.at<uchar>(y, 0) = input.at<uchar>(y, 0);          // Левый край
-        output.at<uchar>(y, input.cols - 1) = input.at<uchar>(y, input.cols - 1); // Правый край
-    }
-    for (int x = 0; x < input.cols; ++x) {
-        output.at<uchar>(0, x) = input.at<uchar>(0, x);          // Верхний край
-        output.at<uchar>(input.rows - 1, x) = input.at<uchar>(input.rows - 1, x); // Нижний край
+        for (int x = 0; x < input.cols; ++x) {
+            if (x == 0 && y == 0) { // Верхний левый угол
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x < input.cols - 1 ? input.at<uchar>(y, x + 1) : 0) +   // Правый сосед
+                    (y < input.rows - 1 ? input.at<uchar>(y + 1, x) : 0),    // Нижний сосед
+                    0), 255);
+            } else if (x == input.cols - 1 && y == 0) { // Верхний правый угол
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x > 0 ? input.at<uchar>(y, x - 1) : 0) +   // Левый сосед
+                    (y < input.rows - 1 ? input.at<uchar>(y + 1, x) : 0),    // Нижний сосед
+                    0), 255);
+            } else if (x == 0 && y == input.rows - 1) { // Нижний левый угол
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x < input.cols - 1 ? input.at<uchar>(y, x + 1) : 0) +   // Правый сосед
+                    (y > 0 ? input.at<uchar>(y - 1, x) : 0),    // Верхний сосед
+                    0), 255);
+            } else if (x == input.cols - 1 && y == input.rows - 1) { // Нижний правый угол
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x > 0 ? input.at<uchar>(y, x - 1) : 0) +   // Левый сосед
+                    (y > 0 ? input.at<uchar>(y - 1, x) : 0),    // Верхний сосед
+                    0), 255);
+            } else if (y == 0) { // Верхний край (не углы)
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x > 0 ? input.at<uchar>(y, x - 1) : 0) +    // Левый сосед
+                    (x < input.cols - 1 ? input.at<uchar>(y, x + 1) : 0) + // Правый сосед
+                    (y < input.rows - 1 ? input.at<uchar>(y + 1, x) : 0), // Нижний сосед
+                    0), 255);
+            } else if (y == input.rows - 1) { // Нижний край (не углы)
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (x > 0 ? input.at<uchar>(y, x - 1) : 0) +    // Левый сосед
+                    (x < input.cols - 1 ? input.at<uchar>(y, x + 1) : 0) + // Правый сосед
+                    (y > 0 ? input.at<uchar>(y - 1, x) : 0), // Верхний сосед
+                    0), 255);
+            } else if (x == 0) { // Левый край (не углы)
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (y > 0 ? input.at<uchar>(y - 1, x) : 0) +    // Верхний сосед
+                    (y < input.rows - 1 ? input.at<uchar>(y + 1, x) : 0) + // Нижний сосед
+                    (x < input.cols - 1 ? input.at<uchar>(y, x + 1) : 0), // Правый сосед
+                    0), 255);
+            } else if (x == input.cols - 1) { // Правый край (не углы)
+                output.at<uchar>(y, x) = min(max(
+                    input.at<uchar>(y, x) * -4 +
+                    (y > 0 ? input.at<uchar>(y - 1, x) : 0) +    // Верхний сосед
+                    (y < input.rows - 1 ? input.at<uchar>(y + 1, x) : 0) + // Нижний сосед
+                    (x > 0 ? input.at<uchar>(y, x - 1) : 0), // Левый сосед
+                    0), 255);
+            }
+        }
     }
 }
 
@@ -70,7 +164,6 @@ int main(int argc, char** argv) {
 
     Mat outputImageCPU = inputImage.clone();
     Mat outputImageGPU = inputImage.clone();
-
     auto startCPU = chrono::high_resolution_clock::now();
     laplacianFilterCPU(inputImage, outputImageCPU);
     auto endCPU = chrono::high_resolution_clock::now();
