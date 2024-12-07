@@ -41,29 +41,22 @@ vector<int> integralSumCPU(const vector<int>& array, float &cpu_duration) {
     int blockSize = 256;
     int numBlocks = (array.size() + blockSize - 1) / blockSize;
 
-    for (int b = 0; b < numBlocks; ++b) {
-        int blockStart = b * blockSize;
+    for (int i = 0; i < numBlocks; ++i) {
+        int blockStart = i * blockSize;
         int blockEnd = min(blockStart + blockSize, (int)array.size());
 
-        for (int i = blockStart; i < blockEnd; ++i) {
-            if (i == blockStart) {
-                result[i] = array[i];
+        for (int j = blockStart; j < blockEnd; ++j) {
+            if (j == blockStart) {
+                result[j] = array[j];
             } else {
-                result[i] = result[i - 1] + array[i];
-            }
-        }
-
-        // Передача суммы последнего элемента блока на следующий блок
-        if (b < numBlocks - 1) {
-            int lastSum = result[blockEnd - 1];
-            for (int j = blockEnd; j < min(blockEnd + blockSize, (int)array.size()); ++j) {
-                result[j] += lastSum; // Добавляем сумму из предыдущего блока
+                result[j] = result[j - 1] + array[j];
             }
         }
     }
 
     auto end = chrono::high_resolution_clock::now();
     cpu_duration = chrono::duration<float, std::milli>(end - start).count();
+
     return result;
 }
 
