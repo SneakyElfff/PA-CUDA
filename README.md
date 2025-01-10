@@ -10,15 +10,6 @@
 `!nvidia-smi`<br>
 `!nvcc --version`<br>
 
-## LP3
-Сделано:
-
-Сделать:
-- протестировать работу программы на матрице большего размера;
-- проверить параметры (grid size, block size).
-
-Дополнительно (необязательно):
-- инициализация массива через cuRAND;
-- работа со сверхбольшими объемами данных:
-  - невозможно вычислить за один вызов ядра;
-  - объем матрицы больше объема видеопамяти.
+## Полезные ссылки
+- [лекции](https://drive.google.com/file/d/1acYAYwzT0Q4gklQxclxLYDYh3J0E-DD8/view?usp=sharing);
+- [вопросы](https://drive.google.com/file/d/18hj74Sexf0pw1llO6LhDbkpsgnOx8mLE/view?usp=sharing);
