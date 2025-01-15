@@ -1,5 +1,10 @@
 # PA-CUDA
 
+## Варианты по лабораторным
+| 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|
+| int| int| 2-1| 1| Оператор Лапласа|
+
 ## Google Colab (если нет NVIDIA)
 1. Зайти на сайт https://colab.research.google.com;
 2. Создать блокнот (notebook) для проектов;
@@ -12,4 +17,4 @@
 
 ## Полезные ссылки
 - [лекции](https://drive.google.com/file/d/1acYAYwzT0Q4gklQxclxLYDYh3J0E-DD8/view?usp=sharing);
-- [вопросы](https://drive.google.com/file/d/18hj74Sexf0pw1llO6LhDbkpsgnOx8mLE/view?usp=sharing);
+- [вопросы](https://drive.google.com/file/d/18hj74Sexf0pw1llO6LhDbkpsgnOx8mLE/view?usp=sharing).
